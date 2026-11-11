@@ -12,7 +12,7 @@
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script>
 tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['Fraunces','Georgia','serif'],sans:['Inter','system-ui','sans-serif']}}}};
-try{const saved=localStorage.getItem('wardrobeai.v1');if(saved&&JSON.parse(saved).theme==='light')document.documentElement.classList.remove('dark')}catch(e){}
+try{if(JSON.parse(localStorage.getItem('wardrobeai.v1')).theme==='light')document.documentElement.classList.remove('dark')}catch(e){}
 </script>
 <style>
 @keyframes rise{from{opacity:0;transform:translateY(16px)}}
@@ -38,8 +38,7 @@ try{const saved=localStorage.getItem('wardrobeai.v1');if(saved&&JSON.parse(saved
 const KEY='wardrobeai.v1';
 const CATS=[['tops','Tops'],['outer','Outerwear'],['bottoms','Bottoms'],['shoes','Shoes'],['acc','Accessories']];
 const CN=Object.fromEntries(CATS),NAV=[['today','Today'],['wardrobe','Wardrobe'],['saved','Saved']];
-let S={items:[],plan:{},shuf:{},favs:[],theme:'dark'};
-try{const raw=localStorage.getItem(KEY);if(raw){const parsed=JSON.parse(raw);S={items:parsed.items||[],plan:parsed.plan||{},shuf:parsed.shuf||{},favs:parsed.favs||[],theme:parsed.theme||'dark'}}}catch(e){S={items:[],plan:{},shuf:{},favs:[],theme:'dark'}}
+let S;try{S={items:[],plan:{},shuf:{},favs:[],theme:'dark',...JSON.parse(localStorage.getItem(KEY))}}catch(e){S={items:[],plan:{},shuf:{},favs:[],theme:'dark'}}
 let filt='all',dcat='tops',tt;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -62,23 +61,13 @@ const heart='<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7
 const I={shuffle:ic('<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>'),heart:ic(heart),heartF:ic(heart).replace('fill="none"','fill="currentColor"'),x:ic('<path d="M6 6l12 12M18 6 6 18"/>'),
 sun:ic('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/>'),moon:ic('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>')};
 
-/* ---------- Color & images (Precise HSL Conversion) ---------- */
-function hsl(r,g,b){
-  r/=255; g/=255; b/=255;
-  const M=Math.max(r,g,b), m=Math.min(r,g,b), l=(M+m)/2, d=M-m;
-  let h=0, s=0;
-  if(d!==0){
-    s = l > 0.5 ? d / (2 - M - m) : d / (M + m);
-    h = M===r ? ((g - b) / d) + (g < b ? 6 : 0) : M===g ? ((b - r) / d) + 2 : ((r - g) / d) + 4;
-    h = Math.round(h * 60);
-  }
-  return {h: isNaN(h) ? 0 : h, s: isNaN(s) ? 0 : s, l: isNaN(l) ? 0 : l};
-}
+/* ---------- Color & images ---------- */
+function hsl(r,g,b){r/=255;g/=255;b/=255;const M=Math.max(r,g,b),m=Math.min(r,g,b),l=(M+m)/2,d=M-m;let h=0,s=0;if(d){s=d/(1-Math.abs(2*l-1));h=M===r?((g-b)/d)%6:M===g?(b-r)/d+2:(r-g)/d+4;h=(h*60+360)%360}return{h,s,l}}
 const hx=h=>hsl(...[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)));
 const neutral=c=>c.s<.2||c.l<.16||c.l>.88;
 const bg=c=>`hsl(${Math.round(c.h)} ${Math.round(c.s*100)}% ${Math.round(c.l*100)}%)`;
 function dominant(cv){const c=document.createElement('canvas');c.width=c.height=24;const x=c.getContext('2d');x.drawImage(cv,cv.width*.25,cv.height*.25,cv.width*.5,cv.height*.5,0,0,24,24);const d=x.getImageData(0,0,24,24).data;let r=0,g=0,b=0,n=0,R=0,G=0,B=0,N=0;for(let i=0;i<d.length;i+=4){R+=d[i];G+=d[i+1];B+=d[i+2];N++;if(d[i]>232&&d[i+1]>232&&d[i+2]>232)continue;r+=d[i];g+=d[i+1];b+=d[i+2];n++}return n>20?hsl(r/n,g/n,b/n):hsl(R/N,G/N,B/N)}
-const prep=f=>new Promise((ok,no)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,300/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,cv.width,cv.height);x.drawImage(im,0,0,cv.width,cv.height);URL.revokeObjectURL(u);ok({img:cv.toDataURL('image/jpeg',.7),c:dominant(cv)})};im.onerror=()=>{URL.revokeObjectURL(u);no()};im.src=u});
+const prep=f=>new Promise((ok,no)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,440/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,cv.width,cv.height);x.drawImage(im,0,0,cv.width,cv.height);URL.revokeObjectURL(u);ok({img:cv.toDataURL('image/jpeg',.72),c:dominant(cv)})};im.onerror=()=>{URL.revokeObjectURL(u);no()};im.src=u});
 async function addFiles(files,cat){let n=0;for(const f of files){if(!f.type.startsWith('image/'))continue;try{const p=await prep(f);S.items.push({id:uid(),cat,name:f.name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ').slice(0,40)||'Untitled',img:p.img,c:p.c});n++}catch(e){}}
 if(n){save();toast(`${n} piece${n>1?'s':''} added to ${CN[cat]}`)}else toast('Those files couldn’t be read as images.');render(true)}
 
@@ -115,7 +104,7 @@ return head+`<div class="mb-7 flex flex-wrap items-end justify-between gap-4"><h
 
 function vWardrobe(){
 const list=S.items.filter(i=>filt==='all'||i.cat===filt),cnt=c=>c==='all'?S.items.length:S.items.filter(i=>i.cat===c).length;
-return `<p class="${EYE}">${S.items.length} piece${S.items.length==1?'':'s'}</p><h1 class="${H1} mb-7">The locker</h1>
+return `<p class="${EYE}">${S.items.length} piece${S.items.length===1?'':'s'}</p><h1 class="${H1} mb-7">The locker</h1>
 <div class="mb-8 rounded-3xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-[#171612]"><p class="${EYE}">Add to</p>
 <div class="mb-3 flex flex-wrap gap-2">${CATS.map(([k,l])=>chip(l,`data-dcat="${k}"`,dcat===k)).join('')}</div>
 <label id="drop" class="grid cursor-pointer place-items-center gap-1 rounded-2xl border-2 border-dashed border-stone-300 px-4 py-9 text-center text-stone-500 transition hover:border-amber-600 dark:border-stone-700 dark:text-stone-400 dark:hover:border-amber-300"><input id="file" type="file" accept="image/*" multiple class="hidden"><b class="font-medium text-stone-900 dark:text-stone-100">Tap to add photos</b><span class="text-sm">Select several at once — they’ll go into ${CN[dcat]}</span></label></div>`+
